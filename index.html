@@ -1,0 +1,136 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<title>えんぷてぃー</title>
+<style>
+#edit{width:100%;height:100%;resize:none;}
+</style>
+</head>
+<!--■■■■■■■■■■■■■■■■■-->
+<body>
+<div id="all">
+<textarea id="edit"  rows="30" cols="50"></textarea>
+</div><!--all-->
+</body>
+</html>
+<!--■■■■■■■■■■■■■■■■■-->
+<script>
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//デフォルトで"ファイルを開く"をしてない場合、
+//つまり"新規"で保存先を決めていない場合、
+//保存先を決めるダイアログを出すためのやつ
+var filepath=undefined;//ファイルパスをここに保存
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//インスタンス
+const electron=require("electron");
+
+const remote=electron.remote;
+const dialog = remote.dialog;
+const ipcRenderer = require("electron").ipcRenderer;
+const Menu=remote.Menu;
+var fs=require("fs");
+
+var edit=document.getElementById("edit");
+//メニューの中身作成
+const tmp = [
+	{
+		label: "ファイル",
+		submenu:[
+			{label:"終了",role:"quit"},
+			{type: "separator"},
+			{
+				label:"ファイルを開く",
+				click () { fopen(); },
+				accelerator: "CmdOrCtrl+O",
+				},
+			{
+				label:"保存",
+				click () { fwrite(); },
+				accelerator: "CmdOrCtrl+S",
+				}
+		]
+	},
+	{
+		label: "編集",
+		submenu: [
+			{label:"コピー",role: "copy"},
+			{label:"貼り付け",role: "paste"},
+			{type: "separator"},
+			{label: "公式サイトを開く",
+				click () {
+					require("electron").shell.openExternal("https://electron.atom.io");
+				}
+			}
+		]
+	}
+];
+//メニュー作成
+const menu = Menu.buildFromTemplate(tmp);
+//メニュー設定
+Menu.setApplicationMenu(menu)
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//ファイル読み込み
+function fopen(){
+	//ダイアログオプション
+	option={
+		title:"ファイルの選択",
+		properties:["openFile"],//フォルダじゃなくファイルを複数選択
+	};
+	//コールバックの引数はパス文字列の"配列"なので注意!!
+	dialog.showOpenDialog(option,function(path){
+		//ダイアログで保存キャンセルするとundefinedが返る
+			if(path !== undefined){
+				//"ファイルを開く"をした場合保存先が決まるという事なので
+				
+				//ファイル読み込み
+				fs.readFile( path[0] ,"utf8",function(err,data){
+					
+					if(err)throw err;//エラーの場合
+					filepath=path[0];//ファイルパス設定
+					ipcRenderer.send("setTitle",path[0]);//メインプロセスにpathタイトル設定
+					//jsEditor.setValue(data);//エディタにテキスト設定
+					edit.value=data;
+					
+				});
+			}
+	});
+}
+//ファイル書き込み
+function fwrite(){
+	//保存先確保ならtrue保存先未確認ならfalse
+	var b01=(filepath !== undefined);
+	//保存先確保なら
+	if(b01){
+		//普通に保存
+		fs.writeFile( filepath , edit.value ,function(err){
+			if(err)throw err;//エラーの場合
+		});
+	//保存先未確認なら
+	}else{
+		//コールバックの引数はパス文字列の"文字列"なので注意!!
+		dialog.showSaveDialog(function(path){
+			//ダイアログで保存キャンセルするとundefinedが返る
+			if(path !== undefined){
+				//ファイルを保存
+				fs.writeFile( path , edit.value ,function(err){
+					
+					if(err)throw err;//エラーの場合
+					filepath=path;//ファイルパス設定
+					ipcRenderer.send("setTitle",path);//メインプロセスにpathタイトル設定
+					
+				});
+			}
+		});
+	}
+}
+</script>
